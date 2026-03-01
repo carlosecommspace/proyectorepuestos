@@ -39,7 +39,6 @@ export async function POST(req: NextRequest) {
   const byCategory: Record<string, number> = {};
   const byBrand: Record<string, number> = {};
   const bySede: Record<string, number> = {};
-  const byStatus: Record<string, number> = {};
 
   for (const part of allParts) {
     const cat = part.partCategory || "Sin categoría";
@@ -50,8 +49,6 @@ export async function POST(req: NextRequest) {
 
     const sede = part.sede.name;
     bySede[sede] = (bySede[sede] || 0) + 1;
-
-    byStatus[part.status] = (byStatus[part.status] || 0) + 1;
   }
 
   const topParts: Record<string, number> = {};
@@ -86,11 +83,6 @@ ${Object.entries(bySede)
   .map(([k, v]) => `  ${k}: ${v} solicitudes`)
   .join("\n")}
 
-POR ESTADO:
-${Object.entries(byStatus)
-  .map(([k, v]) => `  ${k}: ${v}`)
-  .join("\n")}
-
 TOP PARTES MÁS SOLICITADAS:
 ${sortedTopParts.map(([k, v]) => `  ${k}: ${v} veces`).join("\n")}
 
@@ -99,7 +91,7 @@ ${allParts
   .slice(0, 20)
   .map(
     (p) =>
-      `  - ${p.partName || p.rawInput.substring(0, 40)} | ${p.brand || "?"} ${p.model || ""} ${p.year || ""} | Sede: ${p.sede.name} | Estado: ${p.status}`
+      `  - ${p.partName || p.rawInput.substring(0, 40)} | ${p.brand || "?"} ${p.model || ""} ${p.year || ""} | Sede: ${p.sede.name}`
   )
   .join("\n")}
 `;
