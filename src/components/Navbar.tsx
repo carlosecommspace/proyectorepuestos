@@ -37,9 +37,11 @@ export default function Navbar() {
             <Link href="/dashboard/parts" className={linkClass("/dashboard/parts")}>
               Registrar Solicitud
             </Link>
-            <Link href="/dashboard" className={linkClass("/dashboard")}>
-              Solicitudes
-            </Link>
+            {isAdmin && (
+              <Link href="/dashboard" className={linkClass("/dashboard")}>
+                Solicitudes
+              </Link>
+            )}
             {isAdmin && (
               <>
                 <Link

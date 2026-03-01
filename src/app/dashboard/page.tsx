@@ -1,10 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import PartRequestList from "@/components/PartRequestList";
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const user = session?.user as any;
+  const isAdmin = user?.role === "admin";
   const [refreshKey] = useState(0);
+
+  useEffect(() => {
+    if (status === "authenticated" && !isAdmin) {
+      router.replace("/dashboard/parts");
+    }
+  }, [status, isAdmin, router]);
+
+  if (status === "loading" || !isAdmin) {
+    return null;
+  }
 
   return (
     <div>
