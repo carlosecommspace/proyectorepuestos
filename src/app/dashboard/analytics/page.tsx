@@ -9,17 +9,9 @@ interface ReportData {
   byCategory: Record<string, number>;
   byBrand: Record<string, number>;
   bySede: Record<string, number>;
-  byStatus: Record<string, number>;
   byMonth: Record<string, number>;
   topParts: { name: string; count: number }[];
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendiente",
-  reviewed: "Revisado",
-  purchased: "Comprado",
-  dismissed: "Descartado",
-};
 
 function BarChart({
   data,
@@ -126,7 +118,7 @@ export default function AnalyticsPage() {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
               <p className="text-sm text-gray-500">Total Solicitudes</p>
               <p className="text-3xl font-bold text-gray-900 mt-1">
@@ -143,12 +135,6 @@ export default function AnalyticsPage() {
               <p className="text-sm text-gray-500">Marcas</p>
               <p className="text-3xl font-bold text-purple-600 mt-1">
                 {Object.keys(report.byBrand).length}
-              </p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <p className="text-sm text-gray-500">Pendientes</p>
-              <p className="text-3xl font-bold text-yellow-600 mt-1">
-                {report.byStatus["pending"] || 0}
               </p>
             </div>
           </div>
@@ -191,25 +177,6 @@ export default function AnalyticsPage() {
               )}
             </div>
 
-            {/* By Status */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Por Estado
-              </h2>
-              {Object.keys(report.byStatus).length > 0 ? (
-                <BarChart
-                  data={Object.fromEntries(
-                    Object.entries(report.byStatus).map(([k, v]) => [
-                      STATUS_LABELS[k] || k,
-                      v,
-                    ])
-                  )}
-                  color="bg-yellow-500"
-                />
-              ) : (
-                <p className="text-gray-400 text-sm">Sin datos</p>
-              )}
-            </div>
           </div>
 
           {/* Top Parts */}

@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
   const byCategory: Record<string, number> = {};
   const byBrand: Record<string, number> = {};
   const bySede: Record<string, number> = {};
-  const byStatus: Record<string, number> = {};
   const byMonth: Record<string, number> = {};
   const topParts: Record<string, number> = {};
 
@@ -46,8 +45,6 @@ export async function GET(req: NextRequest) {
 
     const sede = part.sede.name;
     bySede[sede] = (bySede[sede] || 0) + 1;
-
-    byStatus[part.status] = (byStatus[part.status] || 0) + 1;
 
     const month = part.createdAt.toISOString().substring(0, 7);
     byMonth[month] = (byMonth[month] || 0) + 1;
@@ -66,7 +63,6 @@ export async function GET(req: NextRequest) {
     byCategory,
     byBrand,
     bySede,
-    byStatus,
     byMonth,
     topParts: sortedTopParts,
   });

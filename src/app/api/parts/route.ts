@@ -10,7 +10,6 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const sedeId = searchParams.get("sedeId");
-  const status = searchParams.get("status");
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "50");
   const skip = (page - 1) * limit;
@@ -21,10 +20,6 @@ export async function GET(req: NextRequest) {
     where.sedeId = user.sedeId;
   } else if (sedeId) {
     where.sedeId = sedeId;
-  }
-
-  if (status) {
-    where.status = status;
   }
 
   const [parts, total] = await Promise.all([

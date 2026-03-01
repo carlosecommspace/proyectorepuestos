@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 
 interface NormalizedData {
@@ -12,12 +12,17 @@ interface NormalizedData {
   year: number | null;
   additionalNotes: string | null;
   _aiUsed?: boolean;
-  _fallbackReason?: string;
 }
 
 interface Sede {
   id: string;
   name: string;
+}
+
+interface VehicleModel {
+  model: string;
+  years: string;
+  type: string;
 }
 
 export default function PartRequestForm({
@@ -41,6 +46,13 @@ export default function PartRequestForm({
   } | null>(null);
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [selectedSede, setSelectedSede] = useState("");
+  const [allBrands, setAllBrands] = useState<string[]>([]);
+  const [brandModels, setBrandModels] = useState<VehicleModel[]>([]);
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const modelRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -50,31 +62,78 @@ export default function PartRequestForm({
     }
   }, [isAdmin]);
 
-  const handleNormalize = async () => {
-    if (!rawInput.trim()) return;
-    setIsNormalizing(true);
-    setMessage(null);
+  // Load all brands on mount
+  useEffect(() => {
+    fetch("/api/vehicles")
+      .then((r) => r.json())
+      .then((data) => setAllBrands(data.brands || []));
+  }, []);
 
+  // Load models when brand changes
+  useEffect(() => {
+    if (normalizedData?.brand) {
+      fetch(`/api/vehicles?brand=${encodeURIComponent(normalizedData.brand)}`)
+        .then((r) => r.json())
+        .then((data) => setBrandModels(data.models || []));
+    } else {
+      setBrandModels([]);
+    }
+  }, [normalizedData?.brand]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (brandRef.current && !brandRef.current.contains(e.target as Node)) {
+        setShowBrandDropdown(false);
+      }
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
+        setShowModelDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Auto-normalize when user stops typing
+  const normalize = useCallback(async (text: string) => {
+    if (!text.trim()) {
+      setNormalizedData(null);
+      return;
+    }
+    setIsNormalizing(true);
     try {
       const res = await fetch("/api/ai/normalize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawInput }),
+        body: JSON.stringify({ rawInput: text }),
       });
-
       if (!res.ok) throw new Error("Error al normalizar");
-
       const data = await res.json();
       setNormalizedData(data);
     } catch {
-      setMessage({
-        type: "error",
-        text: "Error al procesar con IA. Puedes guardar manualmente.",
-      });
+      // Silent fail — user can still fill manually
     } finally {
       setIsNormalizing(false);
     }
+  }, []);
+
+  const handleInputChange = (text: string) => {
+    setRawInput(text);
+    setMessage(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!text.trim()) {
+      setNormalizedData(null);
+      return;
+    }
+    debounceRef.current = setTimeout(() => normalize(text), 800);
   };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handleSave = async () => {
     if (!rawInput.trim()) return;
@@ -130,13 +189,20 @@ export default function PartRequestForm({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Describe la parte solicitada por el cliente
         </label>
-        <textarea
-          value={rawInput}
-          onChange={(e) => setRawInput(e.target.value)}
-          placeholder='Ej: "El cliente necesita pastillas de freno delanteras para un Toyota Corolla 2019 versión SE"'
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400"
-          rows={3}
-        />
+        <div className="relative">
+          <textarea
+            value={rawInput}
+            onChange={(e) => handleInputChange(e.target.value)}
+            placeholder='Ej: "Pastillas de freno delanteras para Toyota Corolla 2019 SE"'
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400"
+            rows={2}
+          />
+          {isNormalizing && (
+            <div className="absolute right-3 top-3">
+              <span className="animate-spin inline-block w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Sede selector for admin */}
@@ -160,39 +226,16 @@ export default function PartRequestForm({
         </div>
       )}
 
-      {/* Normalize button */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleNormalize}
-          disabled={!rawInput.trim() || isNormalizing}
-          className="bg-purple-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          {isNormalizing ? (
-            <>
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              Procesando con IA...
-            </>
-          ) : (
-            "Normalizar con IA"
-          )}
-        </button>
-      </div>
-
-      {/* Normalized data preview */}
+      {/* Normalized data preview — appears automatically */}
       {normalizedData && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-800">Datos Normalizados</h3>
-            {normalizedData._aiUsed === false && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                Normalización automática (IA no disponible)
-              </span>
-            )}
-            {normalizedData._aiUsed === true && (
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                Normalizado con IA
-              </span>
-            )}
+            <h3 className="font-semibold text-gray-800">
+              Verifica y corrige los datos
+            </h3>
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+              {normalizedData._aiUsed ? "Procesado con IA" : "Procesado automáticamente"}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -239,25 +282,78 @@ export default function PartRequestForm({
                 ))}
               </select>
             </div>
-            <div>
+            <div ref={brandRef} className="relative">
               <label className="block text-xs text-gray-500 mb-1">
                 Marca del Vehículo
               </label>
               <input
                 type="text"
                 value={normalizedData.brand || ""}
-                onChange={(e) => handleFieldChange("brand", e.target.value)}
+                onChange={(e) => {
+                  handleFieldChange("brand", e.target.value);
+                  setShowBrandDropdown(true);
+                }}
+                onFocus={() => setShowBrandDropdown(true)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+                autoComplete="off"
               />
+              {showBrandDropdown && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                  {allBrands
+                    .filter((b) =>
+                      b.toLowerCase().includes((normalizedData.brand || "").toLowerCase())
+                    )
+                    .map((b) => (
+                      <li
+                        key={b}
+                        onClick={() => {
+                          handleFieldChange("brand", b);
+                          setShowBrandDropdown(false);
+                        }}
+                        className="px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 cursor-pointer"
+                      >
+                        {b}
+                      </li>
+                    ))}
+                </ul>
+              )}
             </div>
-            <div>
+            <div ref={modelRef} className="relative">
               <label className="block text-xs text-gray-500 mb-1">Modelo</label>
               <input
                 type="text"
                 value={normalizedData.model || ""}
-                onChange={(e) => handleFieldChange("model", e.target.value)}
+                onChange={(e) => {
+                  handleFieldChange("model", e.target.value);
+                  setShowModelDropdown(true);
+                }}
+                onFocus={() => setShowModelDropdown(true)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+                autoComplete="off"
               />
+              {showModelDropdown && brandModels.length > 0 && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                  {brandModels
+                    .filter((m) =>
+                      m.model.toLowerCase().includes((normalizedData.model || "").toLowerCase())
+                    )
+                    .map((m) => (
+                      <li
+                        key={m.model}
+                        onClick={() => {
+                          handleFieldChange("model", m.model);
+                          setShowModelDropdown(false);
+                        }}
+                        className="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer"
+                      >
+                        <span className="text-gray-900">{m.model}</span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {m.years}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">
@@ -299,10 +395,10 @@ export default function PartRequestForm({
       {/* Save button */}
       <button
         onClick={handleSave}
-        disabled={!rawInput.trim() || isSaving}
+        disabled={!rawInput.trim() || isSaving || isNormalizing}
         className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
       >
-        {isSaving ? "Guardando..." : "Guardar Solicitud"}
+        {isSaving ? "Guardando..." : "Registrar Solicitud"}
       </button>
 
       {/* Status message */}

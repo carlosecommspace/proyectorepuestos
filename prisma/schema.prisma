@@ -42,7 +42,6 @@ model PartRequest {
   year             Int?     // Vehicle year
   additionalNotes  String?  // Any extra details
   normalizedData   String?  // Full JSON of AI-normalized data
-  status           String   @default("pending") // "pending", "reviewed", "purchased", "dismissed"
   sedeId           String
   sede             Sede     @relation(fields: [sedeId], references: [id])
   userId           String
