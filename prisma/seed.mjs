@@ -7,8 +7,11 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = join(__dirname, "..", "dev.db");
-const db = new Database(dbPath);
+const dbUrl = process.env.DATABASE_URL || "file:./dev.db";
+const resolvedPath = dbUrl.startsWith("file:")
+  ? join(__dirname, "..", dbUrl.replace("file:", "").replace("./", ""))
+  : join(__dirname, "..", "dev.db");
+const db = new Database(resolvedPath);
 
 function upsertSede(name, address) {
   const existing = db.prepare("SELECT id FROM Sede WHERE name = ?").get(name);
