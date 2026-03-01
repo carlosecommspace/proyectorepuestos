@@ -214,10 +214,10 @@ export default function PartRequestForm({
           {isNormalizing ? (
             <>
               <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              Procesando con IA...
+              Procesando...
             </>
           ) : (
-            "Normalizar con IA"
+            "Normalizar Datos"
           )}
         </button>
       </div>
@@ -227,16 +227,9 @@ export default function PartRequestForm({
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800">Datos Normalizados</h3>
-            {normalizedData._aiUsed === false && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                Normalización automática (IA no disponible)
-              </span>
-            )}
-            {normalizedData._aiUsed === true && (
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                Normalizado con IA
-              </span>
-            )}
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+              {normalizedData._aiUsed ? "Normalizado con IA" : "Normalizado automáticamente"}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

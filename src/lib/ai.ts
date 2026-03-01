@@ -337,10 +337,42 @@ export function fallbackNormalize(rawInput: string) {
   const yearMatch = input.match(/\b(19|20)\d{2}\b/);
   const year = yearMatch ? parseInt(yearMatch[0]) : null;
 
+  // Extract a cleaner part name by removing vehicle references from the input
+  let partName = rawInput;
+  const wordsToRemove: string[] = [];
+  if (brand) wordsToRemove.push(brand);
+  if (model) {
+    // Add all model name variants (e.g. "Vitara/Grand Vitara" → ["Vitara", "Grand Vitara"])
+    model.split("/").forEach((n) => wordsToRemove.push(n.trim()));
+  }
+  if (yearMatch) wordsToRemove.push(yearMatch[0]);
+  // Also remove alias that was matched
+  for (const [alias, ref] of Object.entries(VEHICLE_ALIASES)) {
+    if (input.includes(alias) && ref.brand === brand) {
+      wordsToRemove.push(alias);
+      break;
+    }
+  }
+  for (const word of wordsToRemove) {
+    if (word) {
+      partName = partName.replace(new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "");
+    }
+  }
+  // Clean up: remove extra spaces, trailing prepositions, leading/trailing punctuation
+  partName = partName
+    .replace(/\s+(de|del|para|para el|para la|para un|para una|el|la|un|una)\s*$/i, "")
+    .replace(/^\s*(de|del|para|para el|para la|el|la|un|una)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Capitalize first letter
+  if (partName) {
+    partName = partName.charAt(0).toUpperCase() + partName.slice(1);
+  }
+
   return {
-    partName: rawInput.substring(0, 100),
+    partName: partName || rawInput.substring(0, 100),
     partCategory: category || "General",
-    brand: brand || "No identificada",
+    brand: brand || null,
     model,
     version: null,
     year,
