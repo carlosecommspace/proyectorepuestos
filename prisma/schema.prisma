@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("regular") // "admin" or "regular"
+  sedeId       String?
+  sede         Sede?    @relation(fields: [sedeId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  partRequests PartRequest[]
+}
+
+model Sede {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  address   String?
+  createdAt DateTime @default(now())
+
+  users        User[]
+  partRequests PartRequest[]
+}
+
+model PartRequest {
+  id               String   @id @default(uuid())
+  rawInput         String   // Original natural language input from salesperson
+  partName         String?  // Normalized part name
+  partCategory     String?  // e.g., "Frenos", "Motor", "Suspensión"
+  brand            String?  // Vehicle brand (e.g., Toyota, Chevrolet)
+  model            String?  // Vehicle model (e.g., Corolla, Aveo)
+  version          String?  // Vehicle version/trim
+  year             Int?     // Vehicle year
+  additionalNotes  String?  // Any extra details
+  normalizedData   String?  // Full JSON of AI-normalized data
+  status           String   @default("pending") // "pending", "reviewed", "purchased", "dismissed"
+  sedeId           String
+  sede             Sede     @relation(fields: [sedeId], references: [id])
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
