@@ -16,19 +16,19 @@ export default function Navbar() {
   const linkClass = (path: string) =>
     `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
       pathname === path
-        ? "bg-blue-700 text-white"
-        : "text-blue-100 hover:bg-blue-600 hover:text-white"
+        ? "bg-gray-600 text-white"
+        : "text-gray-100 hover:bg-gray-500 hover:text-white"
     }`;
 
   return (
-    <nav className="bg-blue-800 shadow-lg">
+    <nav className="bg-gray-700 shadow-lg">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="text-white font-bold text-lg">
               AutoPartes
             </Link>
-            <span className="text-blue-200 text-xs border border-blue-400 rounded px-2 py-0.5">
+            <span className="text-gray-300 text-xs border border-gray-400 rounded px-2 py-0.5">
               {user.sedeName || "Todas las sedes"}
             </span>
           </div>
@@ -61,13 +61,13 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-white text-sm font-medium">{user.name}</p>
-              <p className="text-blue-200 text-xs">
+              <p className="text-gray-300 text-xs">
                 {isAdmin ? "Administrador" : "Vendedor"}
               </p>
             </div>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="bg-blue-900 text-blue-100 px-3 py-1.5 rounded text-sm hover:bg-blue-950 transition-colors"
+              className="bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm hover:bg-gray-900 transition-colors"
             >
               Salir
             </button>
