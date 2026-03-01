@@ -10,6 +10,52 @@ interface AIResponse {
   error?: string;
 }
 
+async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
+  const model = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    return { content: "", error: "ANTHROPIC_API_KEY not configured" };
+  }
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1024,
+        system: options.systemPrompt,
+        messages: [
+          { role: "user", content: options.userMessage },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Anthropic error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || "";
+    return { content: text };
+  } catch (error) {
+    console.error("Anthropic error:", error);
+    return {
+      content: "",
+      error: `Error with Anthropic API: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+async function callClaudeText(options: AIRequestOptions): Promise<AIResponse> {
+  return callClaude(options);
+}
+
 async function callOllama(options: AIRequestOptions): Promise<AIResponse> {
   const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
   const model = process.env.OLLAMA_MODEL || "llama3";
@@ -89,6 +135,9 @@ async function callOpenAI(options: AIRequestOptions): Promise<AIResponse> {
 export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
   if (AI_PROVIDER === "openai") {
     return callOpenAI(options);
+  }
+  if (AI_PROVIDER === "claude") {
+    return callClaude(options);
   }
   return callOllama(options);
 }
@@ -173,12 +222,18 @@ export async function callAIText(
   if (AI_PROVIDER === "openai") {
     return callOpenAIText(options);
   }
+  if (AI_PROVIDER === "claude") {
+    return callClaudeText(options);
+  }
   return callOllamaText(options);
 }
 
 export function isAIConfigured(): boolean {
   if (AI_PROVIDER === "openai") {
     return !!process.env.OPENAI_API_KEY;
+  }
+  if (AI_PROVIDER === "claude") {
+    return !!process.env.ANTHROPIC_API_KEY;
   }
   return true; // Ollama just needs to be running
 }
