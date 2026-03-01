@@ -1,47 +1,49 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { createRequire } from "node:module";
-import Database from "better-sqlite3";
+import pg from "pg";
 import { randomUUID } from "node:crypto";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbUrl = process.env.DATABASE_URL || "file:./dev.db";
-const resolvedPath = dbUrl.startsWith("file:")
-  ? join(__dirname, "..", dbUrl.replace("file:", "").replace("./", ""))
-  : join(__dirname, "..", "dev.db");
-const db = new Database(resolvedPath);
+const { Client } = pg;
 
-function upsertSede(name, address) {
-  const existing = db.prepare("SELECT id FROM Sede WHERE name = ?").get(name);
-  if (existing) return existing;
+const client = new Client({
+  connectionString: process.env.DATABASE_URL,
+});
+
+await client.connect();
+
+async function upsertSede(name, address) {
+  const existing = await client.query("SELECT id FROM \"Sede\" WHERE name = $1", [name]);
+  if (existing.rows.length > 0) return existing.rows[0];
 
   const id = randomUUID();
-  db.prepare("INSERT INTO Sede (id, name, address, createdAt) VALUES (?, ?, ?, datetime('now'))").run(id, name, address);
+  await client.query(
+    "INSERT INTO \"Sede\" (id, name, address, \"createdAt\") VALUES ($1, $2, $3, NOW())",
+    [id, name, address]
+  );
   return { id };
 }
 
 async function upsertUser(email, name, password, role, sedeId) {
-  const existing = db.prepare("SELECT id FROM User WHERE email = ?").get(email);
-  if (existing) return existing;
+  const existing = await client.query("SELECT id FROM \"User\" WHERE email = $1", [email]);
+  if (existing.rows.length > 0) return existing.rows[0];
 
   const id = randomUUID();
   const passwordHash = await bcrypt.hash(password, 10);
-  db.prepare(
-    "INSERT INTO User (id, email, name, passwordHash, role, sedeId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))"
-  ).run(id, email, name, passwordHash, role, sedeId);
+  await client.query(
+    "INSERT INTO \"User\" (id, email, name, \"passwordHash\", role, \"sedeId\", \"createdAt\", \"updatedAt\") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
+    [id, email, name, passwordHash, role, sedeId]
+  );
   return { id };
 }
 
-const sede1 = upsertSede("Sede Principal", "Av. Principal #123, Ciudad");
-const sede2 = upsertSede("Sede Sucursal", "Calle Secundaria #456, Ciudad");
+const sede1 = await upsertSede("Sede Principal", "Av. Principal #123, Ciudad");
+const sede2 = await upsertSede("Sede Sucursal", "Calle Secundaria #456, Ciudad");
 
 await upsertUser("admin@repuestos.com", "Administrador", "admin123", "admin", sede1.id);
 await upsertUser("vendedor1@repuestos.com", "Vendedor Sede Principal", "vendedor123", "regular", sede1.id);
 await upsertUser("vendedor2@repuestos.com", "Vendedor Sede Sucursal", "vendedor123", "regular", sede2.id);
 
-db.close();
+await client.end();
 
 console.log("Seed completed successfully!");
 console.log("\nCredenciales:");
