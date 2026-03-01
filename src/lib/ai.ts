@@ -1,4 +1,5 @@
 import { VEHICLE_DATABASE, VEHICLE_ALIASES } from "@/data/vehicles";
+import { PARTS_CATALOG, VENEZUELAN_GLOSSARY } from "@/data/parts";
 
 const AI_PROVIDER = process.env.AI_PROVIDER || "ollama";
 
@@ -243,35 +244,103 @@ export function isAIConfigured(): boolean {
 export function fallbackNormalize(rawInput: string) {
   const input = rawInput.toLowerCase();
 
+  // --- 1. Try matching against the Venezuelan parts catalog ---
+  let matchedPart: { technicalName: string; category: string } | null = null;
+
+  // First try glossary terms (multi-word Venezuelan slang)
+  for (const g of VENEZUELAN_GLOSSARY) {
+    if (input.includes(g.term.toLowerCase())) {
+      matchedPart = { technicalName: g.technicalMeaning, category: "" };
+      // Find the category from the catalog if possible
+      const catalogMatch = PARTS_CATALOG.find(
+        (p) => p.technicalName.toLowerCase().includes(g.technicalMeaning.toLowerCase().split("/")[0].trim().toLowerCase())
+          || p.venezuelanName.toLowerCase().includes(g.term.toLowerCase())
+      );
+      if (catalogMatch) {
+        matchedPart = { technicalName: catalogMatch.technicalName, category: catalogMatch.category };
+      }
+      break;
+    }
+  }
+
+  // Then try matching search tags from the parts catalog
+  if (!matchedPart) {
+    let bestMatch: { part: typeof PARTS_CATALOG[0]; score: number } | null = null;
+    for (const part of PARTS_CATALOG) {
+      let score = 0;
+      for (const tag of part.searchTags) {
+        if (input.includes(tag.toLowerCase())) {
+          score += tag.length; // longer tags are more specific matches
+        }
+      }
+      // Also check Venezuelan name fragments
+      const veNames = part.venezuelanName.toLowerCase().split("/").map((s) => s.trim());
+      for (const vn of veNames) {
+        const cleanVn = vn.replace(/^(el|la|los|las|un|una)\s+/i, "");
+        if (cleanVn.length > 3 && input.includes(cleanVn)) {
+          score += cleanVn.length * 2; // Venezuelan name matches are strong
+        }
+      }
+      if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { part, score };
+      }
+    }
+    if (bestMatch) {
+      matchedPart = { technicalName: bestMatch.part.technicalName, category: bestMatch.part.category };
+    }
+  }
+
+  // --- 2. Category detection (extended with Venezuelan terms) ---
   const knownCategories: Record<string, string[]> = {
-    Frenos: ["pastilla", "disco", "freno", "caliper", "mordaza", "balata", "tambor"],
+    Frenos: ["pastilla", "disco de freno", "freno", "caliper", "mordaza", "balata", "tambor", "banditas", "zapatas", "bombin", "hidrovac", "booster", "abs", "bomba de freno"],
     Motor: [
-      "bujia", "bujía", "filtro aceite", "filtro de aceite", "correa", "motor",
+      "bujia", "bujía", "filtro aceite", "filtro de aceite", "motor",
       "pistón", "piston", "biela", "culata", "empaque", "junta", "válvula",
-      "valvula", "árbol de levas", "cigüeñal",
+      "valvula", "árbol de levas", "cigüeñal", "empacadura", "cabezote",
+      "block", "bloque", "concha", "anillos", "rings", "taquete", "taqué",
+      "estopera", "pata de motor", "carter", "turbo",
     ],
     Suspensión: [
-      "amortiguador", "resorte", "rótula", "rotula", "barra", "terminal",
-      "brazo", "bujes", "buje", "suspensión", "suspension",
+      "amortiguador", "resorte", "rótula", "rotula", "barra estabilizadora",
+      "brazo de control", "bujes", "buje", "suspensión", "suspension",
+      "meseta", "espiga", "espiral", "rolinera de la espiga", "ballesta",
+      "muelle", "link",
     ],
-    Transmisión: [
-      "embrague", "clutch", "caja", "transmisión", "transmision", "cardán",
-      "cardan", "diferencial", "sincronizador",
+    "Transmisión y Embrague": [
+      "embrague", "clutch", "croche", "caja sincrónica", "caja de cambios",
+      "transmisión", "transmision", "cardán", "cardan", "sincronizador",
+      "sincrónico", "sincronico", "tripoide", "punta de eje", "fuelle",
+      "prensa", "balinera", "guaya del clutch", "bomba de clutch",
+      "turbina", "bandas de la caja", "palier", "cruceta",
     ],
-    Eléctrico: [
-      "alternador", "arranque", "batería", "bateria", "bobina", "sensor",
-      "faro", "bombillo", "luz", "eléctric", "electric", "fusible", "relé", "rele",
+    "Sistema Eléctrico": [
+      "alternador", "arranque", "batería", "bateria", "bobina", "faro",
+      "bombillo", "fusible", "relé", "rele", "relay", "ramal", "arnés",
+      "bendix", "automático del arranque", "estárter", "estarter", "switch",
     ],
+    Iluminación: ["faro", "farola", "stop", "calavera", "direccional", "cocuyo", "antiniebla", "plafonera", "bombillo", "luz"],
     Carrocería: [
-      "parachoque", "guardafango", "capó", "capo", "puerta", "vidrio",
-      "espejo", "retrovisor", "compuerta", "tapa", "defensa",
+      "parachoque", "bomper", "guardafango", "capó", "capo", "bonete",
+      "puerta", "vidrio", "espejo", "retrovisor", "compuerta", "defensa",
+      "parabrisas", "luneta", "pluma", "limpia", "tablero", "guantera",
+      "maquinaria del vidrio", "pasador eléctrico", "estribo", "pisadera",
+      "parrilla", "manilla", "batea",
     ],
-    Refrigeración: ["radiador", "termostato", "manguera", "ventilador", "refrigerante", "bomba de agua"],
-    Escape: ["escape", "catalizador", "silenciador", "mofle", "múltiple"],
-    Dirección: ["dirección", "direccion", "cremallera", "bomba dirección", "volante", "columna"],
+    "Sistema de Enfriamiento": ["radiador", "termostato", "ventilador", "refrigerante", "bomba de agua", "electro", "motoventilador", "envase del agua"],
+    Dirección: ["dirección", "direccion", "cremallera", "cajetin", "bomba de la dirección", "volante", "timón", "timon", "terminal de dirección", "bieleta", "brazo pitman", "brazo loco"],
+    "Aceites y Filtros": ["aceite", "filtro de aceite", "filtro de aire", "filtro de gasolina", "atf", "refrigerante", "líquido de frenos", "coolant"],
+    "Sensores y Electrónica": ["sensor", "ckp", "cmp", "ect", "maf", "tps", "lambda", "manocontacto", "computadora", "ecu", "pcm", "bulbo"],
+    "Correas y Cadenas": ["correa de tiempo", "cadena de tiempo", "distribución", "serpentina", "tensor", "correa", "cadena"],
+    "Sistema de Combustible": ["inyector", "flauta", "riel", "carburador", "bomba de gasolina", "pila", "tanque", "throttle", "mariposa", "iac", "filtro de gasolina", "gasolina"],
+    "Sistema de Climatización": ["aire acondicionado", "a/c", "compresor", "condensador", "evaporador", "blower", "filtro de cabina", "filtro de polen", "gas del aire"],
+    Diferencial: ["diferencial", "corona", "semi-eje", "palier"],
+    "Sistema 4x4": ["transfer", "reductora", "4x4", "hubs", "manzana libre"],
+    "Sistema de Gas": ["gnv", "gas", "bombona"],
+    "Ruedas y Neumáticos": ["caucho", "neumático", "neumatico", "rin", "llanta", "rolinera", "rodamiento de rueda", "manzana", "hub"],
+    Accesorios: ["radio", "reproductor", "corneta", "parlante", "subwoofer", "pito", "bocina"],
   };
 
-  // Search brand and model using vehicle database
+  // --- 3. Search brand and model using vehicle database ---
   let brand: string | null = null;
   let model: string | null = null;
 
@@ -289,7 +358,6 @@ export function fallbackNormalize(rawInput: string) {
     for (const b of VEHICLE_DATABASE) {
       if (input.includes(b.brand.toLowerCase())) {
         brand = b.brand;
-        // Try to find a matching model within this brand
         for (const m of b.models) {
           const modelNames = m.model.split("/").map((n: string) => n.trim());
           for (const name of modelNames) {
@@ -323,50 +391,53 @@ export function fallbackNormalize(rawInput: string) {
     }
   }
 
-  let category: string | null = null;
-  for (const [cat, keywords] of Object.entries(knownCategories)) {
-    for (const kw of keywords) {
-      if (input.includes(kw)) {
-        category = cat;
-        break;
+  // --- 4. Determine category ---
+  let category: string | null = matchedPart?.category || null;
+  if (!category) {
+    for (const [cat, keywords] of Object.entries(knownCategories)) {
+      for (const kw of keywords) {
+        if (input.includes(kw)) {
+          category = cat;
+          break;
+        }
       }
+      if (category) break;
     }
-    if (category) break;
   }
 
   const yearMatch = input.match(/\b(19|20)\d{2}\b/);
   const year = yearMatch ? parseInt(yearMatch[0]) : null;
 
-  // Extract a cleaner part name by removing vehicle references from the input
-  let partName = rawInput;
-  const wordsToRemove: string[] = [];
-  if (brand) wordsToRemove.push(brand);
-  if (model) {
-    // Add all model name variants (e.g. "Vitara/Grand Vitara" → ["Vitara", "Grand Vitara"])
-    model.split("/").forEach((n) => wordsToRemove.push(n.trim()));
-  }
-  if (yearMatch) wordsToRemove.push(yearMatch[0]);
-  // Also remove alias that was matched
-  for (const [alias, ref] of Object.entries(VEHICLE_ALIASES)) {
-    if (input.includes(alias) && ref.brand === brand) {
-      wordsToRemove.push(alias);
-      break;
+  // --- 5. Extract part name ---
+  let partName = matchedPart?.technicalName || rawInput;
+
+  if (!matchedPart) {
+    // Remove vehicle references from the input to get a cleaner part name
+    const wordsToRemove: string[] = [];
+    if (brand) wordsToRemove.push(brand);
+    if (model) {
+      model.split("/").forEach((n) => wordsToRemove.push(n.trim()));
     }
-  }
-  for (const word of wordsToRemove) {
-    if (word) {
-      partName = partName.replace(new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "");
+    if (yearMatch) wordsToRemove.push(yearMatch[0]);
+    for (const [alias, ref] of Object.entries(VEHICLE_ALIASES)) {
+      if (input.includes(alias) && ref.brand === brand) {
+        wordsToRemove.push(alias);
+        break;
+      }
     }
-  }
-  // Clean up: remove extra spaces, trailing prepositions, leading/trailing punctuation
-  partName = partName
-    .replace(/\s+(de|del|para|para el|para la|para un|para una|el|la|un|una)\s*$/i, "")
-    .replace(/^\s*(de|del|para|para el|para la|el|la|un|una)\s+/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  // Capitalize first letter
-  if (partName) {
-    partName = partName.charAt(0).toUpperCase() + partName.slice(1);
+    for (const word of wordsToRemove) {
+      if (word) {
+        partName = partName.replace(new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "");
+      }
+    }
+    partName = partName
+      .replace(/\s+(de|del|para|para el|para la|para un|para una|el|la|un|una)\s*$/i, "")
+      .replace(/^\s*(de|del|para|para el|para la|el|la|un|una)\s+/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (partName) {
+      partName = partName.charAt(0).toUpperCase() + partName.slice(1);
+    }
   }
 
   return {
