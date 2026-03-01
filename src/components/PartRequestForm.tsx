@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 
 interface NormalizedData {
@@ -18,6 +18,12 @@ interface NormalizedData {
 interface Sede {
   id: string;
   name: string;
+}
+
+interface VehicleModel {
+  model: string;
+  years: string;
+  type: string;
 }
 
 export default function PartRequestForm({
@@ -41,6 +47,12 @@ export default function PartRequestForm({
   } | null>(null);
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [selectedSede, setSelectedSede] = useState("");
+  const [allBrands, setAllBrands] = useState<string[]>([]);
+  const [brandModels, setBrandModels] = useState<VehicleModel[]>([]);
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const modelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -49,6 +61,38 @@ export default function PartRequestForm({
         .then(setSedes);
     }
   }, [isAdmin]);
+
+  // Load all brands on mount
+  useEffect(() => {
+    fetch("/api/vehicles")
+      .then((r) => r.json())
+      .then((data) => setAllBrands(data.brands || []));
+  }, []);
+
+  // Load models when brand changes
+  useEffect(() => {
+    if (normalizedData?.brand) {
+      fetch(`/api/vehicles?brand=${encodeURIComponent(normalizedData.brand)}`)
+        .then((r) => r.json())
+        .then((data) => setBrandModels(data.models || []));
+    } else {
+      setBrandModels([]);
+    }
+  }, [normalizedData?.brand]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (brandRef.current && !brandRef.current.contains(e.target as Node)) {
+        setShowBrandDropdown(false);
+      }
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
+        setShowModelDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const handleNormalize = async () => {
     if (!rawInput.trim()) return;
@@ -239,25 +283,78 @@ export default function PartRequestForm({
                 ))}
               </select>
             </div>
-            <div>
+            <div ref={brandRef} className="relative">
               <label className="block text-xs text-gray-500 mb-1">
                 Marca del Vehículo
               </label>
               <input
                 type="text"
                 value={normalizedData.brand || ""}
-                onChange={(e) => handleFieldChange("brand", e.target.value)}
+                onChange={(e) => {
+                  handleFieldChange("brand", e.target.value);
+                  setShowBrandDropdown(true);
+                }}
+                onFocus={() => setShowBrandDropdown(true)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+                autoComplete="off"
               />
+              {showBrandDropdown && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                  {allBrands
+                    .filter((b) =>
+                      b.toLowerCase().includes((normalizedData.brand || "").toLowerCase())
+                    )
+                    .map((b) => (
+                      <li
+                        key={b}
+                        onClick={() => {
+                          handleFieldChange("brand", b);
+                          setShowBrandDropdown(false);
+                        }}
+                        className="px-3 py-2 text-sm text-gray-900 hover:bg-blue-50 cursor-pointer"
+                      >
+                        {b}
+                      </li>
+                    ))}
+                </ul>
+              )}
             </div>
-            <div>
+            <div ref={modelRef} className="relative">
               <label className="block text-xs text-gray-500 mb-1">Modelo</label>
               <input
                 type="text"
                 value={normalizedData.model || ""}
-                onChange={(e) => handleFieldChange("model", e.target.value)}
+                onChange={(e) => {
+                  handleFieldChange("model", e.target.value);
+                  setShowModelDropdown(true);
+                }}
+                onFocus={() => setShowModelDropdown(true)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+                autoComplete="off"
               />
+              {showModelDropdown && brandModels.length > 0 && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                  {brandModels
+                    .filter((m) =>
+                      m.model.toLowerCase().includes((normalizedData.model || "").toLowerCase())
+                    )
+                    .map((m) => (
+                      <li
+                        key={m.model}
+                        onClick={() => {
+                          handleFieldChange("model", m.model);
+                          setShowModelDropdown(false);
+                        }}
+                        className="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer"
+                      >
+                        <span className="text-gray-900">{m.model}</span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {m.years}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">
