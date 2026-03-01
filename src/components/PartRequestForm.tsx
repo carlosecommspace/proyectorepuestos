@@ -40,6 +40,7 @@ export default function PartRequestForm({
   );
   const [isNormalizing, setIsNormalizing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showMissingFieldsWarning, setShowMissingFieldsWarning] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -135,8 +136,20 @@ export default function PartRequestForm({
     };
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = async (force = false) => {
     if (!rawInput.trim()) return;
+
+    // Check for missing year or version and warn user
+    if (!force && normalizedData) {
+      const missingYear = !normalizedData.year;
+      const missingVersion = !normalizedData.version?.trim();
+      if (missingYear || missingVersion) {
+        setShowMissingFieldsWarning(true);
+        return;
+      }
+    }
+
+    setShowMissingFieldsWarning(false);
     setIsSaving(true);
     setMessage(null);
 
@@ -166,6 +179,7 @@ export default function PartRequestForm({
       setMessage({ type: "success", text: "Solicitud registrada exitosamente" });
       setRawInput("");
       setNormalizedData(null);
+      setShowMissingFieldsWarning(false);
       onSuccess?.();
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -392,9 +406,40 @@ export default function PartRequestForm({
         </div>
       )}
 
+      {/* Missing fields warning */}
+      {showMissingFieldsWarning && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+          <p className="text-amber-800 font-medium mb-2">
+            Faltan datos del vehículo
+          </p>
+          <p className="text-amber-700 text-sm mb-3">
+            {!normalizedData?.year && !normalizedData?.version?.trim()
+              ? "No se indicaron el año ni la versión del vehículo."
+              : !normalizedData?.year
+                ? "No se indicó el año del vehículo."
+                : "No se indicó la versión del vehículo."}
+            {" "}Estos datos ayudan a encontrar el repuesto correcto.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowMissingFieldsWarning(false)}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+            >
+              Completar datos
+            </button>
+            <button
+              onClick={() => handleSave(true)}
+              className="px-4 py-2 border border-amber-400 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-100 transition-colors"
+            >
+              Enviar de todos modos
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Save button */}
       <button
-        onClick={handleSave}
+        onClick={() => handleSave()}
         disabled={!rawInput.trim() || isSaving || isNormalizing}
         className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
       >

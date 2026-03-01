@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import PartRequestForm from "@/components/PartRequestForm";
 import PartRequestList from "@/components/PartRequestList";
 
 export default function PartsPage() {
+  const { data: session } = useSession();
+  const user = session?.user as any;
+  const isAdmin = user?.role === "admin";
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -24,12 +28,14 @@ export default function PartsPage() {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Solicitudes Recientes
-        </h2>
-        <PartRequestList refreshKey={refreshKey} />
-      </div>
+      {isAdmin && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Solicitudes Recientes
+          </h2>
+          <PartRequestList refreshKey={refreshKey} />
+        </div>
+      )}
     </div>
   );
 }
