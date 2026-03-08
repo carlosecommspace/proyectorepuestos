@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { PART_CATEGORIES } from "@/data/partCategories";
 
 interface NormalizedData {
   partName: string | null;
@@ -275,21 +276,7 @@ export default function PartRequestForm({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
               >
-                {[
-                  "Frenos",
-                  "Motor",
-                  "Suspensión",
-                  "Transmisión",
-                  "Eléctrico",
-                  "Carrocería",
-                  "Refrigeración",
-                  "Escape",
-                  "Dirección",
-                  "Aceites y Filtros",
-                  "Neumáticos",
-                  "Accesorios",
-                  "General",
-                ].map((cat) => (
+                {PART_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>

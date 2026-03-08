@@ -2,26 +2,46 @@ import { NextRequest, NextResponse } from "next/server";
 import { callAI, fallbackNormalize } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/session";
 import { getVehicleSummaryForPrompt } from "@/data/vehicles";
+import { getPartsSummaryForPrompt, PART_CATEGORIES } from "@/data/parts";
 
 function buildNormalizePrompt(): string {
   const vehicleSummary = getVehicleSummaryForPrompt();
+  const partsSummary = getPartsSummaryForPrompt();
+  const categoriesList = PART_CATEGORIES.join(", ");
+
   return `Eres un asistente especializado en repuestos y partes de automóviles en Venezuela. Tu trabajo es normalizar y estructurar la información que un vendedor ingresa en lenguaje natural sobre una parte solicitada por un cliente.
 
-Debes extraer y normalizar la siguiente información del texto del vendedor:
+Los vendedores en Venezuela usan jerga local para referirse a las partes. Por ejemplo:
+- "la pila" = Bomba de gasolina
+- "el caucho" = Neumático
+- "las banditas" = Zapatas de freno
+- "la empacadura del cabezote" = Junta de culata
+- "el bomper" = Parachoques
+- "la guaya del clutch" = Cable de embrague
+- "el electro" = Electroventilador
+- "las conchas de biela" = Cojinetes de biela
+- "la meseta" = Brazo de control
+- "la correa de tiempo" = Correa de distribución
+- "las plumas" = Cuchillas de limpiaparabrisas
+- "el hidrovac" = Servofreno / Booster
 
-1. partName: Nombre estandarizado de la parte/repuesto (en español, capitalizado correctamente). NO incluyas la marca, modelo o año en este campo — solo el nombre del repuesto.
-2. partCategory: Categoría de la parte. Usa SOLO una de estas categorías: Frenos, Motor, Suspensión, Transmisión, Eléctrico, Carrocería, Refrigeración, Escape, Dirección, Aceites y Filtros, Neumáticos, Accesorios, General
-3. brand: Marca del vehículo (capitalizada correctamente, ej: "Toyota", "Chevrolet")
-4. model: Modelo del vehículo (capitalizado correctamente, usa el nombre oficial del listado abajo)
-5. version: Versión o trim del vehículo si se menciona (ej: "LX", "Sport", "4x4")
-6. year: Año del vehículo (número entero, o null si no se menciona)
-7. additionalNotes: Cualquier información adicional relevante que no encaje en los campos anteriores
+Debes extraer y normalizar la siguiente información:
 
-IMPORTANTE: Usa este listado de vehículos conocidos en Venezuela para normalizar correctamente marca y modelo. Si el vendedor usa un apodo o nombre popular (ej: "machito", "samuray", "la marronera"), identifica el vehículo correcto.
+1. partName: Nombre técnico estandarizado de la parte (en español, capitalizado). NO incluyas marca, modelo o año — solo el nombre del repuesto. Traduce la jerga venezolana al nombre técnico correcto.
+2. partCategory: Categoría. Usa SOLO una de estas: ${categoriesList}
+3. brand: Marca del vehículo (capitalizada, ej: "Toyota", "Chevrolet")
+4. model: Modelo del vehículo (capitalizado, usa el nombre oficial)
+5. version: Versión o trim (ej: "LX", "Sport", "4x4")
+6. year: Año del vehículo (número entero, o null)
+7. additionalNotes: Información adicional relevante
 
+CATÁLOGO DE PARTES VENEZOLANO (nombre venezolano → nombre técnico):
+${partsSummary}
+
+VEHÍCULOS CONOCIDOS EN VENEZUELA:
 ${vehicleSummary}
 
-Responde ÚNICAMENTE con un objeto JSON válido con estos campos. Si algún dato no está disponible, usa null.
+Responde ÚNICAMENTE con un objeto JSON válido. Si algún dato no está disponible, usa null.
 No agregues explicaciones, texto adicional, ni bloques de código markdown. Solo el JSON puro.
 
 Ejemplo de respuesta correcta:
