@@ -24,11 +24,17 @@ async function upsertSede(name, address) {
 }
 
 async function upsertUser(email, name, password, role, sedeId) {
+  const passwordHash = await bcrypt.hash(password, 10);
   const existing = await client.query("SELECT id FROM \"User\" WHERE email = $1", [email]);
-  if (existing.rows.length > 0) return existing.rows[0];
+  if (existing.rows.length > 0) {
+    await client.query(
+      "UPDATE \"User\" SET name = $1, \"passwordHash\" = $2, role = $3, \"sedeId\" = $4, \"updatedAt\" = NOW() WHERE email = $5",
+      [name, passwordHash, role, sedeId, email]
+    );
+    return existing.rows[0];
+  }
 
   const id = randomUUID();
-  const passwordHash = await bcrypt.hash(password, 10);
   await client.query(
     "INSERT INTO \"User\" (id, email, name, \"passwordHash\", role, \"sedeId\", \"createdAt\", \"updatedAt\") VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
     [id, email, name, passwordHash, role, sedeId]
