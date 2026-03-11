@@ -2,7 +2,6 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 export default function Navbar() {
@@ -27,12 +26,11 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="flex items-center">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/logo-moparca.svg"
                 alt="Moparca"
-                width={140}
-                height={42}
-                className="brightness-0 invert"
+                className="h-10 w-auto brightness-0 invert"
               />
             </Link>
             <span className="text-gray-300 text-xs border border-gray-400 rounded px-2 py-0.5">
