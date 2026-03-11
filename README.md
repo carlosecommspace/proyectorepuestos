@@ -63,9 +63,11 @@ OPENAI_MODEL="gpt-3.5-turbo"
 
 | Rol | Email | Contraseña |
 |-----|-------|------------|
-| Admin | admin@repuestos.com | admin123 |
-| Vendedor Sede Principal | vendedor1@repuestos.com | vendedor123 |
-| Vendedor Sede Sucursal | vendedor2@repuestos.com | vendedor123 |
+| Admin | admin@repuestos.com | Ronaldadmin |
+| Vendedor 1 | vendedorrl@repuestos.com | vendedor542 |
+| Vendedor 2 | vendedorrl2@repuestos.com | vendedor321 |
+| Vendedor 3 | vendedorca@repuestos.com | vendedor987 |
+| Vendedor 4 | vendedorca2@repuestos.com | vendedor656 |
 
 ## Estructura del Proyecto
 
