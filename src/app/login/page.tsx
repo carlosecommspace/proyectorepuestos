@@ -3,8 +3,6 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Image from "next/image";
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -35,13 +33,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/logo-moparca.svg"
             alt="Moparca"
-            width={280}
-            height={84}
-            className="mx-auto"
-            priority
+            className="mx-auto w-full max-w-xs"
           />
           <p className="text-gray-500 mt-3">
             Sistema de Gestión de Solicitudes
