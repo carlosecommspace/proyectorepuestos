@@ -39,14 +39,18 @@ async function upsertUser(email, name, password, role, sedeId) {
 const sede1 = await upsertSede("Sede Principal", "Av. Principal #123, Ciudad");
 const sede2 = await upsertSede("Sede Sucursal", "Calle Secundaria #456, Ciudad");
 
-await upsertUser("admin@repuestos.com", "Administrador", "admin123", "admin", sede1.id);
-await upsertUser("vendedor1@repuestos.com", "Vendedor Sede Principal", "vendedor123", "regular", sede1.id);
-await upsertUser("vendedor2@repuestos.com", "Vendedor Sede Sucursal", "vendedor123", "regular", sede2.id);
+await upsertUser("admin@repuestos.com", "Administrador", "Ronaldadmin", "admin", sede1.id);
+await upsertUser("vendedorrl@repuestos.com", "Vendedor RL", "vendedor542", "regular", sede1.id);
+await upsertUser("vendedorrl2@repuestos.com", "Vendedor RL2", "vendedor321", "regular", sede2.id);
+await upsertUser("vendedorca@repuestos.com", "Vendedor CA", "vendedor987", "regular", sede1.id);
+await upsertUser("vendedorca2@repuestos.com", "Vendedor CA2", "vendedor656", "regular", sede2.id);
 
 await client.end();
 
 console.log("Seed completed successfully!");
 console.log("\nCredenciales:");
-console.log("  Admin: admin@repuestos.com / admin123");
-console.log("  Vendedor 1 (Sede Principal): vendedor1@repuestos.com / vendedor123");
-console.log("  Vendedor 2 (Sede Sucursal): vendedor2@repuestos.com / vendedor123");
+console.log("  Admin: admin@repuestos.com / Ronaldadmin");
+console.log("  Vendedor 1: vendedorrl@repuestos.com / vendedor542");
+console.log("  Vendedor 2: vendedorrl2@repuestos.com / vendedor321");
+console.log("  Vendedor 3: vendedorca@repuestos.com / vendedor987");
+console.log("  Vendedor 4: vendedorca2@repuestos.com / vendedor656");
