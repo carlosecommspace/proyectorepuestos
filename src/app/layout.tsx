@@ -15,7 +15,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "AutoPartes - Gestión de Solicitudes de Repuestos",
+  title: "Moparca - Gestión de Solicitudes de Repuestos",
   description:
     "Sistema de registro y análisis de solicitudes de repuestos automotrices no disponibles",
 };
