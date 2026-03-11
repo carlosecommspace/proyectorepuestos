@@ -34,7 +34,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">AutoPartes</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Moparca</h1>
           <p className="text-gray-500 mt-2">
             Sistema de Gestión de Solicitudes
           </p>
@@ -83,22 +83,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-500 font-medium mb-2">
-            Credenciales de prueba:
-          </p>
-          <div className="text-xs text-gray-600 space-y-1">
-            <p>
-              <strong>Admin:</strong> admin@repuestos.com / admin123
-            </p>
-            <p>
-              <strong>Vendedor 1:</strong> vendedor1@repuestos.com / vendedor123
-            </p>
-            <p>
-              <strong>Vendedor 2:</strong> vendedor2@repuestos.com / vendedor123
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

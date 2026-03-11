@@ -26,7 +26,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="text-white font-bold text-lg">
-              AutoPartes
+              Moparca
             </Link>
             <span className="text-gray-300 text-xs border border-gray-400 rounded px-2 py-0.5">
               {user.sedeName || "Todas las sedes"}
