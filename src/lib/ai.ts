@@ -13,7 +13,7 @@ interface AIResponse {
   error?: string;
 }
 
-async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
+async function callClaude(options: AIRequestOptions, retries = 2): Promise<AIResponse> {
   const model = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -21,53 +21,74 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
     return { content: "", error: "ANTHROPIC_API_KEY no está configurada. Establece la variable de entorno ANTHROPIC_API_KEY." };
   }
 
-  try {
-    // Truncate system prompt if too long to avoid 400 errors
-    const maxSystemLength = 50000;
-    const systemPrompt = options.systemPrompt.length > maxSystemLength
-      ? options.systemPrompt.substring(0, maxSystemLength) + "\n\n[Datos truncados por límite de tamaño]"
-      : options.systemPrompt;
+  // Truncate system prompt if too long to avoid 400 errors
+  const maxSystemLength = 50000;
+  const systemPrompt = options.systemPrompt.length > maxSystemLength
+    ? options.systemPrompt.substring(0, maxSystemLength) + "\n\n[Datos truncados por límite de tamaño]"
+    : options.systemPrompt;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [
-          { role: "user", content: options.userMessage },
-        ],
-      }),
-    });
+  let lastError: string = "";
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      let errorDetail: string;
-      try {
-        const parsed = JSON.parse(errorBody);
-        errorDetail = parsed.error?.message || errorBody;
-      } catch {
-        errorDetail = errorBody;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (attempt > 0) {
+        // Wait with exponential backoff before retrying
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
       }
-      console.error(`Anthropic API error ${response.status}:`, errorDetail);
-      throw new Error(`Anthropic API ${response.status}: ${errorDetail}`);
-    }
 
-    const data = await response.json();
-    const text = data.content?.[0]?.text || "";
-    return { content: text };
-  } catch (error) {
-    console.error("Anthropic error:", error);
-    return {
-      content: "",
-      error: `Error con Anthropic API: ${error instanceof Error ? error.message : "Error desconocido"}`,
-    };
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [
+            { role: "user", content: options.userMessage },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        let errorDetail: string;
+        try {
+          const parsed = JSON.parse(errorBody);
+          errorDetail = parsed.error?.message || errorBody;
+        } catch {
+          errorDetail = errorBody;
+        }
+        console.error(`Anthropic API error ${response.status} (attempt ${attempt + 1}):`, errorDetail);
+
+        // Only retry on 429 (rate limit) or 5xx (server errors), not on 400/401/403
+        if (response.status >= 500 || response.status === 429) {
+          lastError = `Anthropic API ${response.status}: ${errorDetail}`;
+          continue;
+        }
+
+        return {
+          content: "",
+          error: `Error con Anthropic API: Anthropic API ${response.status}: ${errorDetail}`,
+        };
+      }
+
+      const data = await response.json();
+      const text = data.content?.[0]?.text || "";
+      return { content: text };
+    } catch (error) {
+      console.error(`Anthropic error (attempt ${attempt + 1}):`, error);
+      lastError = error instanceof Error ? error.message : "Error desconocido";
+    }
   }
+
+  return {
+    content: "",
+    error: `Error con Anthropic API después de ${retries + 1} intentos: ${lastError}`,
+  };
 }
 
 async function callClaudeText(options: AIRequestOptions): Promise<AIResponse> {
