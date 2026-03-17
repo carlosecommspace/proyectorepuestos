@@ -102,10 +102,17 @@ ${allParts
   });
 
   if (aiResponse.error) {
+    const AI_PROVIDER = process.env.AI_PROVIDER || "ollama";
+    let helpMessage: string;
+    if (AI_PROVIDER === "claude") {
+      helpMessage = "No se pudo conectar con la API de Anthropic. Verifica que tu ANTHROPIC_API_KEY sea válida y que el modelo configurado esté disponible.";
+    } else if (AI_PROVIDER === "openai") {
+      helpMessage = "No se pudo conectar con la API de OpenAI. Verifica que tu OPENAI_API_KEY sea válida.";
+    } else {
+      helpMessage = "No se pudo conectar con el servicio de IA. Asegúrate de que Ollama esté corriendo o que la API esté configurada correctamente.";
+    }
     return NextResponse.json({
-      response:
-        "No se pudo conectar con el servicio de IA. Asegúrate de que Ollama esté corriendo o que la API esté configurada correctamente.\n\nError: " +
-        aiResponse.error,
+      response: helpMessage + "\n\nError: " + aiResponse.error,
       _aiUsed: false,
     });
   }
