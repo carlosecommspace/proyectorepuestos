@@ -18,10 +18,16 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    return { content: "", error: "ANTHROPIC_API_KEY not configured" };
+    return { content: "", error: "ANTHROPIC_API_KEY no está configurada. Establece la variable de entorno ANTHROPIC_API_KEY." };
   }
 
   try {
+    // Truncate system prompt if too long to avoid 400 errors
+    const maxSystemLength = 50000;
+    const systemPrompt = options.systemPrompt.length > maxSystemLength
+      ? options.systemPrompt.substring(0, maxSystemLength) + "\n\n[Datos truncados por límite de tamaño]"
+      : options.systemPrompt;
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -32,7 +38,7 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
       body: JSON.stringify({
         model,
         max_tokens: 1024,
-        system: options.systemPrompt,
+        system: systemPrompt,
         messages: [
           { role: "user", content: options.userMessage },
         ],
@@ -40,7 +46,16 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
     });
 
     if (!response.ok) {
-      throw new Error(`Anthropic error: ${response.status}`);
+      const errorBody = await response.text();
+      let errorDetail: string;
+      try {
+        const parsed = JSON.parse(errorBody);
+        errorDetail = parsed.error?.message || errorBody;
+      } catch {
+        errorDetail = errorBody;
+      }
+      console.error(`Anthropic API error ${response.status}:`, errorDetail);
+      throw new Error(`Anthropic API ${response.status}: ${errorDetail}`);
     }
 
     const data = await response.json();
@@ -50,7 +65,7 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
     console.error("Anthropic error:", error);
     return {
       content: "",
-      error: `Error with Anthropic API: ${error instanceof Error ? error.message : "Unknown error"}`,
+      error: `Error con Anthropic API: ${error instanceof Error ? error.message : "Error desconocido"}`,
     };
   }
 }
