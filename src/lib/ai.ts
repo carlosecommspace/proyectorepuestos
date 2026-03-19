@@ -3,9 +3,36 @@ import { PARTS_CATALOG, VENEZUELAN_GLOSSARY } from "@/data/parts";
 
 const AI_PROVIDER = process.env.AI_PROVIDER || "ollama";
 
+// In-memory cache for AI responses to avoid duplicate API calls.
+// Entries expire after 10 minutes. Max 200 entries to limit memory usage.
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_MAX_SIZE = 200;
+const responseCache = new Map<string, { content: string; timestamp: number }>();
+
+function getCachedResponse(key: string): string | null {
+  const entry = responseCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    responseCache.delete(key);
+    return null;
+  }
+  return entry.content;
+}
+
+function setCachedResponse(key: string, content: string): void {
+  // Evict oldest entries if cache is full
+  if (responseCache.size >= CACHE_MAX_SIZE) {
+    const oldestKey = responseCache.keys().next().value;
+    if (oldestKey) responseCache.delete(oldestKey);
+  }
+  responseCache.set(key, { content, timestamp: Date.now() });
+}
+
 interface AIRequestOptions {
   systemPrompt: string;
   userMessage: string;
+  /** When true, reduces max_tokens for small JSON responses */
+  compactResponse?: boolean;
 }
 
 interface AIResponse {
@@ -28,6 +55,13 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
       ? options.systemPrompt.substring(0, maxSystemLength) + "\n\n[Datos truncados por límite de tamaño]"
       : options.systemPrompt;
 
+    // Use prompt caching for large system prompts (>1024 chars) to reduce costs.
+    // Anthropic caches the system prompt for 5 minutes, saving ~90% on repeated input tokens.
+    const useCache = systemPrompt.length > 1024;
+    const systemPayload = useCache
+      ? [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }]
+      : systemPrompt;
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -37,8 +71,8 @@ async function callClaude(options: AIRequestOptions): Promise<AIResponse> {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
-        system: systemPrompt,
+        max_tokens: options.compactResponse ? 256 : 1024,
+        system: systemPayload,
         messages: [
           { role: "user", content: options.userMessage },
         ],
@@ -151,13 +185,27 @@ async function callOpenAI(options: AIRequestOptions): Promise<AIResponse> {
 }
 
 export async function callAI(options: AIRequestOptions): Promise<AIResponse> {
+  // Check response cache (keyed on user message to avoid re-processing identical inputs)
+  const cacheKey = `json:${options.userMessage}`;
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    return { content: cached };
+  }
+
+  let result: AIResponse;
   if (AI_PROVIDER === "openai") {
-    return callOpenAI(options);
+    result = await callOpenAI(options);
+  } else if (AI_PROVIDER === "claude") {
+    result = await callClaude(options);
+  } else {
+    result = await callOllama(options);
   }
-  if (AI_PROVIDER === "claude") {
-    return callClaude(options);
+
+  // Cache successful responses
+  if (!result.error && result.content) {
+    setCachedResponse(cacheKey, result.content);
   }
-  return callOllama(options);
+  return result;
 }
 
 async function callOllamaText(options: AIRequestOptions): Promise<AIResponse> {
