@@ -119,14 +119,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Try fallback first — if it confidently resolves part + brand, skip AI to save costs
+  const fallback = fallbackNormalize(rawInput);
+  const fallbackIsConfident =
+    fallback.partName !== rawInput.substring(0, 100) &&
+    fallback.partName !== rawInput &&
+    fallback.partCategory !== "General" &&
+    fallback.brand;
+
+  if (fallbackIsConfident) {
+    console.log("[normalize] Fallback resolved confidently, skipping AI call");
+    return NextResponse.json({
+      ...fallback,
+      _aiUsed: false,
+    });
+  }
+
   const aiResponse = await callAI({
     systemPrompt: buildNormalizePrompt(),
     userMessage: rawInput,
+    compactResponse: true,
   });
 
   if (aiResponse.error) {
     console.log("[normalize] AI error, using fallback:", aiResponse.error);
-    const fallback = fallbackNormalize(rawInput);
     return NextResponse.json({
       ...fallback,
       _aiUsed: false,
@@ -143,7 +159,6 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     console.log("[normalize] JSON parse failed, using fallback. Raw AI response:", aiResponse.content?.substring(0, 200));
-    const fallback = fallbackNormalize(rawInput);
     return NextResponse.json({
       ...fallback,
       _aiUsed: false,
